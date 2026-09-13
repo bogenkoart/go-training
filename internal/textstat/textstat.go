@@ -15,10 +15,9 @@ func CountRunes(s string) int {
 // Words разбивает строку на слова. Словом считается последовательность
 // букв и цифр; всё остальное — разделители. Регистр приводится к нижнему.
 func Words(s string) []string {
-	normalize(s)
-	s = strings.ToLower(s)
+	s = normalize(s)
 	words := strings.FieldsFunc(s, func(r rune) bool {
-	return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
 	})
 	return words
 }
@@ -32,39 +31,35 @@ func Frequency(words []string) map[string]int {
 	return a
 }
 
-type SString struct {
-	word string
+type wordCount struct {
+	word  string
 	count int
-}
-
-func NewSString(word string, count int) *SString {
-	return &SString{
-		word: word,
-		count: count,
-	}
 }
 
 // Top возвращает n самых частых слов по убыванию частоты.
 // Слова с одинаковой частотой идут в алфавитном порядке.
 // Если слов меньше n — вернуть все, сколько есть.
 func Top(freq map[string]int, n int) []string {
-	a := make([]*SString, 0, len(freq))
+	if n < 0 {
+		return []string{}
+	}
+	wordCnt := make([]wordCount, 0, len(freq))
 	for word, count := range freq {
-		a = append(a, NewSString(word, count))
+		wordCnt = append(wordCnt, wordCount{word, count})
 	}
-	sort.Slice(a, func(i, j int) bool {
-		if a[i].count != a[j].count {
-			return a[i].count > a[j].count
+	sort.Slice(wordCnt, func(i, j int) bool {
+		if wordCnt[i].count != wordCnt[j].count {
+			return wordCnt[i].count > wordCnt[j].count
 		}
-		return a[i].word < a[j].word
+		return wordCnt[i].word < wordCnt[j].word
 	})
-	res := make([]string, 0, n)
-	for i:=0; i < n && i < len(a); i++ {
-		res = append(res, a[i].word)
+	result := make([]string, 0)
+	for i := 0; i < n && i < len(wordCnt); i++ {
+		result = append(result, wordCnt[i].word)
 	}
-	return res
+	return result
 }
 
 func normalize(s string) string {
-	return "есть ли ошибка"
+	return strings.ToLower(s)
 }
