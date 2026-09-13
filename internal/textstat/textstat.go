@@ -24,11 +24,11 @@ func Words(s string) []string {
 
 // Frequency возвращает, сколько раз каждое слово встретилось.
 func Frequency(words []string) map[string]int {
-	a := map[string]int{}
+	wordCnt := map[string]int{}
 	for _, word := range words {
-		a[word]++
+		wordCnt[word]++
 	}
-	return a
+	return wordCnt
 }
 
 type wordCount struct {
