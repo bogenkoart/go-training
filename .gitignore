@@ -1,0 +1,1 @@
+printf 'bin/\n.DS_Store\n' > .gitignore
