@@ -1,4 +1,7 @@
 package slicework
+
+import "sort"
+
 // Dedup убирает ПОДРЯД ИДУЩИЕ дубликаты, изменяя срез на месте,
 // без выделения нового массива. Возвращает срез с нужной длиной.
 func Dedup(s []int) []int {
@@ -17,6 +20,9 @@ func Dedup(s []int) []int {
 // Chunk разбивает срез на куски длиной n (последний может быть короче).
 // append в любой кусок НЕ должен портить соседние куски.
 func Chunk(s []int, n int) [][]int {
+	if len(s) <= 0 {
+		return [][]int{}
+	}
 	result := [][]int{}
 	var i int = 0
 	for i = n; i < len(s); i += n {
@@ -35,6 +41,9 @@ func Invert(m map[string]int) map[int][]string {
 	insert := make(map[int][]string)
 	for key, val := range m {
 		insert[val] = append(insert[val], key)
+	}
+	for _, val := range insert {
+		sort.Strings(val)
 	}
 	return insert
 }
