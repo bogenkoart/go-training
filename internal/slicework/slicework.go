@@ -3,16 +3,13 @@ package slicework
 // без выделения нового массива. Возвращает срез с нужной длиной.
 func Dedup(s []int) []int {
 	if len(s) == 0 {
-		return []int{}
+		return s
 	}
-	dedup := s[:0]
-	slow, fast := 1, 1
-	for fast < len(s) {
-		if dedup[fast] != dedup[fast - 1] {
-			dedup[slow] = dedup[fast]
-			slow++
+	dedup := s[:1]
+	for i := 1; i < len(s); i++ {
+		if s[i-1] != s[i] {
+			dedup = append(dedup, s[i])
 		}
-		fast++
 	}
 	return dedup
 }
