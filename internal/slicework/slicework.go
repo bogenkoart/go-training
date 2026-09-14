@@ -20,7 +20,7 @@ func Dedup(s []int) []int {
 // Chunk разбивает срез на куски длиной n (последний может быть короче).
 // append в любой кусок НЕ должен портить соседние куски.
 func Chunk(s []int, n int) [][]int {
-	if len(s) <= 0 {
+	if n <= 0 {
 		return [][]int{}
 	}
 	result := [][]int{}
