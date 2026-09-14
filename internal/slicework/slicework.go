@@ -2,12 +2,19 @@ package slicework
 // Dedup убирает ПОДРЯД ИДУЩИЕ дубликаты, изменяя срез на месте,
 // без выделения нового массива. Возвращает срез с нужной длиной.
 func Dedup(s []int) []int {
-	for i, _ := range s {
-		if i > 0 && s[i] == s[i - 1] {
-			s = append(s[:i-1], s[i:]...)
-		}
+	if len(s) == 0 {
+		return []int{}
 	}
-	return s
+	dedup := s[:0]
+	slow, fast := 1, 1
+	for fast < len(s) {
+		if dedup[fast] != dedup[fast - 1] {
+			dedup[slow] = dedup[fast]
+			slow++
+		}
+		fast++
+	}
+	return dedup
 }
 
 // Chunk разбивает срез на куски длиной n (последний может быть короче).
@@ -15,11 +22,11 @@ func Dedup(s []int) []int {
 func Chunk(s []int, n int) [][]int {
 	result := [][]int{}
 	var i int = 0
-	for i = n; i < n; i += n {
-		result = append(result, s[i-n:i:n])
+	for i = n; i < len(s); i += n {
+		result = append(result, s[i-n:i:i])
 	}
 	if len(s[i-n:]) != 0 {
-		result = append(result, s[i-n:])
+		result = append(result, s[i-n:len(s):len(s)])
 	}
 	return result
 }
@@ -30,9 +37,7 @@ func Chunk(s []int, n int) [][]int {
 func Invert(m map[string]int) map[int][]string {
 	insert := make(map[int][]string)
 	for key, val := range m {
-		for v := range val {
-			insert[v] = append(insert[v], key)
-		}
+		insert[val] = append(insert[val], key)
 	}
 	return insert
 }
