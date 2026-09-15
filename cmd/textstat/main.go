@@ -3,11 +3,24 @@ package main
 import (
 	"fmt"
 
-	"github.com/bogenkoart/go-training/internal/slicework"
+	"github.com/bogenkoart/go-training/internal/store"
 )
 
 func main() {
-	fmt.Println(slicework.Dedup([]int{1, 1, 2, 2, 2, 3}))
-	fmt.Println(slicework.Chunk([]int{1, 2, 3, 4}, 2))
-	fmt.Println(map[string]int{"work": 1, "work1": 2})
+	var _ store.Storage = (*store.MemoryStorage)(nil) // вот здесь потом поясни пожалуйста
+	s := store.NewMemoryStorage()
+	data := []byte("hello")
+	s.Save("k", data)
+	data[0] = 'X'
+	got, _ := s.Load("k")
+	fmt.Println(string(got))
+	s1, _ := s.Load("k")
+	s1[0] = 'X'
+	got1, _ := s.Load("k")
+	fmt.Println(string(got1))
+	fmt.Println(s)
+	s.Delete("k")
+	got1, err := s.Load("k")
+	fmt.Println(err)
+	fmt.Println(s)
 }
