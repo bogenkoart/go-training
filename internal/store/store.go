@@ -2,6 +2,7 @@ package store
 
 import (
 	"errors"
+	"fmt"
 )
 
 var ErrNotFound = errors.New("not found")
@@ -49,4 +50,26 @@ func (m *MemoryStorage) Delete(key string) error {
 		return nil
 	}
 	return ErrNotFound
+}
+
+type LoggingStorage struct {
+	Storage // встроенный ИНТЕРФЕЙС, не структура
+}
+
+func (l *LoggingStorage) Save(key string, value []byte) error {
+	fmt.Println("Добавление элемента")
+	err := l.Storage.Save(key, value)
+	if err != nil {
+		fmt.Println(err)
+	}
+	return err
+}
+
+func (l *LoggingStorage) Delete(key string) error {
+	fmt.Println("Удаление элемента")
+	err := l.Storage.Delete(key)
+	if err != nil {
+		fmt.Println(err)
+	}
+	return err
 }

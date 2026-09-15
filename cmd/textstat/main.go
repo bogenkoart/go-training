@@ -8,6 +8,7 @@ import (
 
 func main() {
 	var _ store.Storage = (*store.MemoryStorage)(nil) // вот здесь потом поясни пожалуйста
+	var _ store.Storage = (*store.LoggingStorage)(nil)
 	s := store.NewMemoryStorage()
 	data := []byte("hello")
 	s.Save("k", data)
@@ -23,4 +24,13 @@ func main() {
 	got1, err := s.Load("k")
 	fmt.Println(err)
 	fmt.Println(s)
+	fmt.Println()
+
+	l := store.LoggingStorage{Storage: store.NewMemoryStorage()}
+	data1 := []byte("hello")
+	l.Save("k", data1)
+	m, _ := l.Load("k")
+	fmt.Println(string(m))
+	l.Delete("k")
+	l.Delete("k")
 }
