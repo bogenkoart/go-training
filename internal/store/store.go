@@ -47,6 +47,11 @@ func (m *MemoryStorage) Delete(key string) error {
 	return nil
 }
 
+// LoggingStorage встраивает интерфейс Storage.
+//  Методы встроенного поля продвигаются к внешнему типу,
+//  поэтому Load вызывается у того значения, которое лежит в поле Storage.
+//  Save и Delete объявлены явно и перекрывают продвинутые версии.
+
 type LoggingStorage struct {
 	Storage // встроенный ИНТЕРФЕЙС, не структура
 }
@@ -68,8 +73,3 @@ func (l *LoggingStorage) Delete(key string) error {
 	}
 	return err
 }
-
-// LoggingStorage встраивает интерфейс Storage.
-//  Методы встроенного поля продвигаются к внешнему типу,
-//  поэтому Load вызывается у того значения, которое лежит в поле Storage.
-//  Save и Delete объявлены явно и перекрывают продвинутые версии.
