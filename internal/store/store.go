@@ -8,7 +8,6 @@ import (
 var _ Storage = (*MemoryStorage)(nil)
 var _ Storage = (*LoggingStorage)(nil)
 var ErrNotFound = errors.New("not found")
-var ErrSave = errors.New("такой ключ уже существует")
 
 type Storage interface {
 	Save(key string, value []byte) error
@@ -70,4 +69,7 @@ func (l *LoggingStorage) Delete(key string) error {
 	return err
 }
 
-// Load работает без объявления потому что берёт уже написанный Load
+// LoggingStorage встраивает интерфейс Storage.
+//  Методы встроенного поля продвигаются к внешнему типу,
+//  поэтому Load вызывается у того значения, которое лежит в поле Storage.
+//  Save и Delete объявлены явно и перекрывают продвинутые версии.
