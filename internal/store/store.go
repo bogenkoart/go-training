@@ -3,9 +3,9 @@ package store
 import (
 	"errors"
 	"fmt"
+	"runtime/debug"
 )
 
-var _ Storage = (*MemoryStorage)(nil)
 var _ Storage = (*LoggingStorage)(nil)
 var ErrNotFound = errors.New("not found")
 
@@ -17,6 +17,20 @@ type Storage interface {
 
 type MemoryStorage struct {
 	data map[string][]byte
+}
+
+type PanicStorage struct{ Storage } // встраиваем интерфейс — методы продвинутся
+
+func (p PanicStorage) Load(key string) ([]byte, error) {
+	panic("хранилище сломалось")
+}
+
+func (p PanicStorage) Save(key string, value []byte) error {
+	panic("хранилище сломалось")
+}
+
+func (p PanicStorage) Delete(key string) error {
+	panic("хранилище сломалось")
 }
 
 func NewMemoryStorage() *MemoryStorage {
@@ -33,13 +47,17 @@ func (m *MemoryStorage) Save(key string, value []byte) error {
 	return nil
 }
 
-func (m *MemoryStorage) Load(key string) ([]byte, error) {
+func (m *MemoryStorage) Load(key string) ([]byte, *KeyError) {
 	if v, ok := m.data[key]; ok {
 		cop := make([]byte, len(v))
 		copy(cop, v)
 		return cop, nil
 	}
-	return nil, ErrNotFound
+	return nil, &KeyError{
+		Op:  "load",
+		Key: key,
+		Err: ErrNotFound,
+	}
 }
 
 func (m *MemoryStorage) Delete(key string) error {
@@ -73,3 +91,17 @@ func (l *LoggingStorage) Delete(key string) error {
 	}
 	return err
 }
+
+// SafeLoad вызывает s.Load и превращает любую панику внутри реализации
+// в обычную ошибку, не роняя программу.
+func SafeLoad(s Storage, key string) (data []byte, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("safe load %q паника: %v, %v", key, r, debug.Stack())
+		}
+	}()
+	data, err = s.Load(key)
+	return data, err
+}
+
+// потому что  если мы не укажем именнованным err, то мы не сможем передать ошибку далше и функция вернёт корректное срабатывание в случае паники. Мы просто не заметим панику
