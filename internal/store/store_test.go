@@ -1,7 +1,5 @@
 package store
 
-package store
-
 import "testing"
 
 // тип неэкспортируемый — тест лежит в том же пакете и видит его
