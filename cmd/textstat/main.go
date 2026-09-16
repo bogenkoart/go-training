@@ -22,9 +22,4 @@ func main() {
 
 	// 3. Текст содержит и операцию, и ключ
 	fmt.Println(err) // ожидаем: load "user:17": not found
-
-	data, err1 := store.SafeLoad(store.PanicStorage{}, "k")
-	fmt.Println(data, err1)
-	// ожидаем примерно: [] safe load "k": паника: хранилище сломалось
-	fmt.Println("программа жива")
 }
