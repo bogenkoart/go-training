@@ -2,47 +2,83 @@ package main
 
 import (
 	"fmt"
+	"runtime"
+	"sync/atomic"
 	"time"
 
 	"github.com/bogenkoart/go-training/internal/parallel"
 )
 
 func main() {
-	fmt.Println("=== Задача 1: CountWordsParallel ===")
-	texts := []string{
-		"привет мир мир",
-		"мир go go",
-		"go привет",
-	}
-	// пять прогонов подряд: результат обязан совпасть пять раз из пяти
-	for i := 1; i <= 5; i++ {
-		fmt.Printf("  прогон %d: %v\n", i, parallel.CountWordsParallel(texts))
-	}
-	fmt.Printf("  пустой вход: %v\n", parallel.CountWordsParallel(nil))
+	fmt.Println("=== Задача 1: ProcessLimited ===")
 
-	fmt.Println()
-	fmt.Println("=== Задача 2: счётчики, по 5 прогонов ===")
-	for i := 1; i <= 5; i++ {
-		fmt.Printf("  racy=%-6d mutex=%-6d atomic=%-6d\n",
-			parallel.CounterRacy(),
-			parallel.CounterMutex(),
-			parallel.CounterAtomic(),
-		)
+	items := make([]string, 12)
+	for i := range items {
+		items[i] = fmt.Sprintf("item-%02d", i)
 	}
 
+	start := time.Now()
+	res := parallel.ProcessLimited(items, 3)
+	elapsed := time.Since(start)
+
+	fmt.Printf("  результатов: %d\n", len(res))
+	fmt.Printf("  первые три:  %v\n", res[:3])
+	fmt.Printf("  порядок ок:  %v\n", checkOrder(items, res))
+	fmt.Printf("  время:       %v\n", elapsed)
+	fmt.Println("  ожидаем ~4 волны по 50мс = ~200мс; если ~50мс — лимит не работает")
+
 	fmt.Println()
-	fmt.Println("=== Время, среднее из 10 прогонов ===")
-	fmt.Printf("  racy:   %v\n", measure(func() { parallel.CounterRacy() }))
-	fmt.Printf("  mutex:  %v\n", measure(func() { parallel.CounterMutex() }))
-	fmt.Printf("  atomic: %v\n", measure(func() { parallel.CounterAtomic() }))
+	fmt.Println("=== Задача 2: Merge ===")
+
+	before := runtime.NumGoroutine()
+
+	a := gen(1, 2, 3)
+	b := gen(10, 20)
+	c := gen(100)
+
+	var sum int64
+	count := 0
+	for v := range parallel.Merge(a, b, c) {
+		atomic.AddInt64(&sum, int64(v))
+		count++
+	}
+	fmt.Printf("  получено значений: %d (ожидаем 6)\n", count)
+	fmt.Printf("  сумма: %d (ожидаем 136)\n", sum)
+
+	// пустой вызов
+	empty := 0
+	for range parallel.Merge() {
+		empty++
+	}
+	fmt.Printf("  Merge() без аргументов вернул значений: %d (ожидаем 0)\n", empty)
+
+	time.Sleep(100 * time.Millisecond) // даём горутинам доиграть
+	after := runtime.NumGoroutine()
+	fmt.Printf("  горутин было %d, стало %d — утечки %v\n",
+		before, after, map[bool]string{true: "нет", false: "ЕСТЬ"}[after <= before])
 }
 
-// measure прогоняет f десять раз и возвращает среднее время одного прогона.
-func measure(f func()) time.Duration {
-	const runs = 10
-	start := time.Now()
-	for i := 0; i < runs; i++ {
-		f()
+// gen возвращает канал, отдающий переданные значения и закрывающийся после.
+func gen(vals ...int) <-chan int {
+	ch := make(chan int)
+	go func() {
+		defer close(ch)
+		for _, v := range vals {
+			ch <- v
+		}
+	}()
+	return ch
+}
+
+// checkOrder проверяет, что results[i] получен из items[i].
+func checkOrder(items, results []string) bool {
+	if len(items) != len(results) {
+		return false
 	}
-	return time.Since(start) / runs
+	for i := range items {
+		if results[i] != "done:"+items[i] {
+			return false
+		}
+	}
+	return true
 }
