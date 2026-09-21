@@ -1,52 +1,57 @@
 package main
 
 import (
-	"context"
-	"errors"
 	"fmt"
-	"runtime"
-	"time"
+	"sync"
+	"sync/atomic"
 
-	"github.com/bogenkoart/go-training/internal/parallel"
+	"github.com/bogenkoart/go-training/internal/safe"
 )
 
 func main() {
-	fmt.Println("=== Задача 1: CallWithTimeout ===")
+	fmt.Println("=== Задача 1: RateLimiter ===")
+	l := safe.NewRateLimiter(50)
 
-	fast := func() string { time.Sleep(50 * time.Millisecond); return "быстро" }
-	slow := func() string { time.Sleep(300 * time.Millisecond); return "медленно" }
+	var allowed atomic.Int64
+	var wg sync.WaitGroup
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 10; j++ {
+				if l.Allow("alice") {
+					allowed.Add(1)
+				}
+			}
+		}()
+	}
+	wg.Wait()
 
-	res, err := parallel.CallWithTimeout(context.Background(), 100*time.Millisecond, fast)
-	fmt.Printf("  быстрый вызов:   %q, err=%v\n", res, err)
-
-	start := time.Now()
-	res, err = parallel.CallWithTimeout(context.Background(), 100*time.Millisecond, slow)
-	fmt.Printf("  медленный вызов: %q, err=%v, за %v\n",
-		res, err, time.Since(start).Round(10*time.Millisecond))
-	fmt.Printf("  это DeadlineExceeded: %v\n", errors.Is(err, context.DeadlineExceeded))
-
-	parent, cancel := context.WithCancel(context.Background())
-	go func() { time.Sleep(30 * time.Millisecond); cancel() }()
-	start = time.Now()
-	res, err = parallel.CallWithTimeout(parent, time.Second, slow)
-	fmt.Printf("  отмена родителя: %q, err=%v, за %v\n",
-		res, err, time.Since(start).Round(10*time.Millisecond))
-	fmt.Printf("  это Canceled: %v\n", errors.Is(err, context.Canceled))
-
-	time.Sleep(400 * time.Millisecond) // даём медленным вызовам досчитать до конца
-	fmt.Printf("  горутин после всех вызовов: %d (ожидаем 1)\n", runtime.NumGoroutine())
+	fmt.Printf("  разрешено alice: %d (ожидаем ровно 50)\n", allowed.Load())
+	fmt.Printf("  Count(alice):    %d (ожидаем 50)\n", l.Count("alice"))
+	fmt.Printf("  Allow(bob):      %v (ожидаем true — лимит у каждого свой)\n", l.Allow("bob"))
+	fmt.Printf("  Total():         %d (ожидаем 1001 — все вызовы Allow)\n", l.Total())
 
 	fmt.Println()
-	fmt.Println("=== Задача 2: Heartbeat ===")
+	fmt.Println("=== Задача 2: GetConfig ===")
+	ptrs := make([]*safe.Config, 100)
+	var wg2 sync.WaitGroup
+	for i := range ptrs {
+		wg2.Add(1)
+		go func(i int) {
+			defer wg2.Done()
+			ptrs[i] = safe.GetConfig()
+		}(i)
+	}
+	wg2.Wait()
 
-	ctx, stop := context.WithTimeout(context.Background(), 550*time.Millisecond)
-	defer stop()
-
-	start = time.Now()
-	n := parallel.Heartbeat(ctx, 100*time.Millisecond, func() {})
-	fmt.Printf("  ударов: %d (ожидаем 5), вернулся за %v\n",
-		n, time.Since(start).Round(10*time.Millisecond))
-
-	time.Sleep(200 * time.Millisecond)
-	fmt.Printf("  горутин после остановки: %d (ожидаем 1)\n", runtime.NumGoroutine())
+	same := true
+	for _, p := range ptrs {
+		if p != ptrs[0] {
+			same = false
+		}
+	}
+	fmt.Printf("  загрузок: %d (ожидаем 1)\n", safe.LoadCount())
+	fmt.Printf("  у всех один и тот же объект: %v\n", same)
+	fmt.Printf("  конфиг: %+v\n", *ptrs[0])
 }
