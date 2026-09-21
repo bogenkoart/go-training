@@ -1,84 +1,52 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"runtime"
-	"sync/atomic"
 	"time"
 
 	"github.com/bogenkoart/go-training/internal/parallel"
 )
 
 func main() {
-	fmt.Println("=== Задача 1: ProcessLimited ===")
+	fmt.Println("=== Задача 1: CallWithTimeout ===")
 
-	items := make([]string, 12)
-	for i := range items {
-		items[i] = fmt.Sprintf("item-%02d", i)
-	}
+	fast := func() string { time.Sleep(50 * time.Millisecond); return "быстро" }
+	slow := func() string { time.Sleep(300 * time.Millisecond); return "медленно" }
+
+	res, err := parallel.CallWithTimeout(context.Background(), 100*time.Millisecond, fast)
+	fmt.Printf("  быстрый вызов:   %q, err=%v\n", res, err)
 
 	start := time.Now()
-	res := parallel.ProcessLimited(items, 3)
-	elapsed := time.Since(start)
+	res, err = parallel.CallWithTimeout(context.Background(), 100*time.Millisecond, slow)
+	fmt.Printf("  медленный вызов: %q, err=%v, за %v\n",
+		res, err, time.Since(start).Round(10*time.Millisecond))
+	fmt.Printf("  это DeadlineExceeded: %v\n", errors.Is(err, context.DeadlineExceeded))
 
-	fmt.Printf("  результатов: %d\n", len(res))
-	fmt.Printf("  первые три:  %v\n", res[:3])
-	fmt.Printf("  порядок ок:  %v\n", checkOrder(items, res))
-	fmt.Printf("  время:       %v\n", elapsed)
-	fmt.Println("  ожидаем ~4 волны по 50мс = ~200мс; если ~50мс — лимит не работает")
+	parent, cancel := context.WithCancel(context.Background())
+	go func() { time.Sleep(30 * time.Millisecond); cancel() }()
+	start = time.Now()
+	res, err = parallel.CallWithTimeout(parent, time.Second, slow)
+	fmt.Printf("  отмена родителя: %q, err=%v, за %v\n",
+		res, err, time.Since(start).Round(10*time.Millisecond))
+	fmt.Printf("  это Canceled: %v\n", errors.Is(err, context.Canceled))
+
+	time.Sleep(400 * time.Millisecond) // даём медленным вызовам досчитать до конца
+	fmt.Printf("  горутин после всех вызовов: %d (ожидаем 1)\n", runtime.NumGoroutine())
 
 	fmt.Println()
-	fmt.Println("=== Задача 2: Merge ===")
+	fmt.Println("=== Задача 2: Heartbeat ===")
 
-	before := runtime.NumGoroutine()
+	ctx, stop := context.WithTimeout(context.Background(), 550*time.Millisecond)
+	defer stop()
 
-	a := gen(1, 2, 3)
-	b := gen(10, 20)
-	c := gen(100)
+	start = time.Now()
+	n := parallel.Heartbeat(ctx, 100*time.Millisecond, func() {})
+	fmt.Printf("  ударов: %d (ожидаем 5), вернулся за %v\n",
+		n, time.Since(start).Round(10*time.Millisecond))
 
-	var sum int64
-	count := 0
-	for v := range parallel.Merge(a, b, c) {
-		atomic.AddInt64(&sum, int64(v))
-		count++
-	}
-	fmt.Printf("  получено значений: %d (ожидаем 6)\n", count)
-	fmt.Printf("  сумма: %d (ожидаем 136)\n", sum)
-
-	// пустой вызов
-	empty := 0
-	for range parallel.Merge() {
-		empty++
-	}
-	fmt.Printf("  Merge() без аргументов вернул значений: %d (ожидаем 0)\n", empty)
-
-	time.Sleep(100 * time.Millisecond) // даём горутинам доиграть
-	after := runtime.NumGoroutine()
-	fmt.Printf("  горутин было %d, стало %d — утечки %v\n",
-		before, after, map[bool]string{true: "нет", false: "ЕСТЬ"}[after <= before])
-}
-
-// gen возвращает канал, отдающий переданные значения и закрывающийся после.
-func gen(vals ...int) <-chan int {
-	ch := make(chan int)
-	go func() {
-		defer close(ch)
-		for _, v := range vals {
-			ch <- v
-		}
-	}()
-	return ch
-}
-
-// checkOrder проверяет, что results[i] получен из items[i].
-func checkOrder(items, results []string) bool {
-	if len(items) != len(results) {
-		return false
-	}
-	for i := range items {
-		if results[i] != "done:"+items[i] {
-			return false
-		}
-	}
-	return true
+	time.Sleep(200 * time.Millisecond)
+	fmt.Printf("  горутин после остановки: %d (ожидаем 1)\n", runtime.NumGoroutine())
 }
